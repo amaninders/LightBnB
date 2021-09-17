@@ -175,9 +175,30 @@ exports.getAllReservations = getAllReservations;
  * @return {Promise<{}>} A promise to the property.
  */
 const addProperty = function(property) {
-  const propertyId = Object.keys(properties).length + 1;
-  property.id = propertyId;
-  properties[propertyId] = property;
-  return Promise.resolve(property);
+  
+	// initialize constants and variables
+	let string = `INSERT INTO properties(col_placeholder) VALUES(col_parameters) RETURNING*`;
+	let counter = 1
+	const colParameters = [];
+	const values = []
+	
+	Object.keys(property).forEach(e => {
+		colParameters.push(`$${counter++}`);
+		values.push(property[e]);
+	})
+	
+	queryString = string
+						.replace('col_placeholder', Object.keys(property))
+						.replace('col_parameters', colParameters);
+	
+	console.log(queryString);
+	console.log(values);
+	return pool
+		.query(queryString, values)
+		.then(res => {
+			console.log(res);
+			res.rows
+		})
+		.catch(err => err.stack);
 }
 exports.addProperty = addProperty;
