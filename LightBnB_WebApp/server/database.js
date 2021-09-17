@@ -101,16 +101,71 @@ exports.getAllReservations = getAllReservations;
  * @return {Promise<[{}]>}  A promise to the properties.
  */
 
- const getAllProperties = (options, limit = 10) => {
+ const getAllProperties = function(options, limit = 10) {
+  
+	// initialize the placholders for querystring and value
+	const conditions = [];
+	const values = [limit];
+	let rating = ``;
+	
+	let string = `SELECT properties.*, AVG(rating) AS average_rating
+	FROM properties
+	JOIN property_reviews
+	ON properties.id = property_reviews.property_id
+	WHERE
+	GROUP BY properties.id
+	RATING
+	ORDER BY cost_per_night
+	LIMIT $1`
+	
+	let counter = 2;
+	
+	Object.keys(options).forEach((e) => {
+		if (options[e]) {
+			switch (e) {
+				case 'city':
+					values.push(`%${options[e]}%`);
+					conditions.push(`${e} ILIKE $${counter++}`);
+					break;
+				case 'minimum_rating':
+					values.push(parseInt(options[e]))
+					rating = `HAVING AVG(rating) >= $${counter++}`;
+					break;					
+				case 'maximum_price_per_night':
+					values.push(parseInt(options[e]) * 100)
+					conditions.push(`cost_per_night < $${counter++}`);
+					break;					
+				case 'minimum_price_per_night':
+					values.push(parseInt(options[e]) * 100)
+					conditions.push(`cost_per_night > $${counter++}`);
+					break;					
+				default:
+					values.push(parseInt(options[e]))
+					conditions.push(`${e} = $${counter++}`);
+					break;
+			}
+		}
+	})
+	
+	
+	string = string
+		.replace('WHERE',        //replace conditions if applicable
+			conditions.length 
+			? `WHERE ${conditions.join(' AND ')}` 
+			: ''
+		)
+		.replace('RATING',			//replace rating clause if applicable
+			rating.length
+			? rating
+			: ''
+		)
+
   return pool
-		.query(`SELECT * FROM properties LIMIT $1`, [limit])
-    .then((result) => {
-			return result.rows
-		})
-    .catch((err) => {
-			return err.message
-		});
- };
+		.query(string, values)
+    .then(res => res.rows)
+    .catch(err => err.stack);
+}
+
  exports.getAllProperties = getAllProperties;
 
 
